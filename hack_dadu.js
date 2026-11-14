@@ -6,10 +6,15 @@ setTimeout(function() {
     window.daduHacked = true;
 
     const originalRandom = Math.random;
+    const originalCrypto = window.crypto ? window.crypto.getRandomValues : null;
+    
     let targetTotal = 24; 
     let diceCount = 9; 
     let plannedValues = [];
-    
+    let seqIndex = 0;
+    let isRolling = false;
+    let timeoutId = null;
+
     function generatePlan(total, count) {
         if (total < count || total > count * 6) return []; 
         let arr = new Array(count).fill(1);
@@ -40,26 +45,25 @@ setTimeout(function() {
         }
 
         plannedValues = generatePlan(targetTotal, diceCount);
+        seqIndex = 0;
         document.getElementById('dadu-status').innerText = `Target: ${targetTotal} (${mode.toUpperCase()})`;
     }
 
-    // --- LOGIKA TIMPA ANGKA (DOM OVERWRITE) ---
-    let hackInterval = null;
-    
-    function overwriteDOM() {
+    // --- PAKE MUTATION OBSERVER (Sama kaya Flutter V37) ---
+    // Ini bakal nangkep perubahan pas dadu muter dan maksa angkanya berubah
+    const observer = new MutationObserver(function(mutations) {
+        if (!isRolling || plannedValues.length === 0) return;
+        
+        // Overwrite DOM secara instan
         let diceEls = [];
         let totalEl = null;
         
-        document.querySelectorAll('div, span').forEach(el => {
-            if (el.offsetParent !== null && el.children.length === 0 && el.innerText) {
+        document.querySelectorAll('div, span, [role="img"]').forEach(el => {
+            if (el.offsetParent !== null && el.innerText) {
                 let text = el.innerText.trim();
-                
-                // Cari Dadu (1-6)
-                if (/^[1-6]$/.test(text)) {
+                if (/^[1-6]$/.test(text) && el.children.length === 0) {
                     diceEls.push(el);
                 }
-                
-                // Cari Total
                 if (text === 'Total') {
                     let parent = el.parentElement;
                     if (parent) {
@@ -71,7 +75,6 @@ setTimeout(function() {
             }
         });
         
-        // Timpa Angka Dadunya
         if (diceEls.length >= diceCount) {
             for (let i = 0; i < diceCount; i++) {
                 if (diceEls[i] && diceEls[i].innerText !== plannedValues[i].toString()) {
@@ -79,33 +82,54 @@ setTimeout(function() {
                 }
             }
         }
-        
-        // Timpa Totalnya
         if (totalEl && totalEl.innerText !== targetTotal.toString()) {
             totalEl.innerText = targetTotal;
         }
-    }
+    });
 
-    // Deteksi Klik Tombol Lembar
+    // Mulai observasi
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+
+    // --- HOOK MATH.RANDOM & CRYPTO (Biar Mesin Google Ngikutin) ---
     document.addEventListener('pointerdown', function(e) {
         let btn = e.target.closest('button') || e.target.parentElement;
         if(btn && btn.innerText && (btn.innerText.includes('Lembar') || btn.innerText.includes('Roll'))) {
             if (plannedValues.length > 0) {
-                if (hackInterval) clearInterval(hackInterval);
-                
-                let loops = 0;
-                // Jalanin loop 4 detik penuh pas dadu muter & berhenti
-                hackInterval = setInterval(() => {
-                    loops++;
-                    if (loops > 80) { // 80 x 50ms = 4000ms (4 detik)
-                        clearInterval(hackInterval);
-                        return;
-                    }
-                    overwriteDOM();
-                }, 50);
+                isRolling = true;
+                seqIndex = 0;
+                if(timeoutId) clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => { isRolling = false; }, 4000); 
             }
         }
     }, true);
+
+    Math.random = function() {
+        try {
+            if (isRolling && plannedValues.length > 0) {
+                let val = plannedValues[seqIndex];
+                seqIndex = (seqIndex + 1) % plannedValues.length;
+                return (val - 1 + 0.99) / 6; 
+            }
+        } catch(e) {}
+        return originalRandom();
+    };
+
+    if (window.crypto && originalCrypto) {
+        window.crypto.getRandomValues = function(array) {
+            try {
+                if (isRolling && plannedValues.length > 0) {
+                    for (let i = 0; i < array.length; i++) {
+                        let val = plannedValues[seqIndex];
+                        seqIndex = (seqIndex + 1) % plannedValues.length;
+                        array[i] = Math.floor(((val - 1 + 0.99) / 6) * 256);
+                    }
+                    return array;
+                }
+            } catch(e) {}
+            return originalCrypto.apply(window.crypto, arguments);
+        };
+    }
 
     // Bikin UI
     const ui = document.createElement('div');
