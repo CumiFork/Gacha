@@ -2,119 +2,88 @@ setTimeout(function() {
     if (window.daduHacked) return;
     window.daduHacked = true;
 
-    let diceCount = 9;
-    let targetTotal = 24;
+    const originalRandom = Math.random;
+    const originalCrypto = window.crypto ? window.crypto.getRandomValues : null;
+    
+    let targetTotal = 24; 
+    let diceCount = 9; 
     let plannedValues = [];
-    let isHijacking = false;
+    let seqIndex = 0;
+    let isRolling = false;
+    let timeoutId = null;
 
-    function setMode(mode) {
-        diceCount = parseInt(document.getElementById('dadu-count').value) || 9;
-        
-        if (mode === "kecil") {
-            let min_possible = diceCount;
-            let max_possible = Math.min(30, diceCount * 6);
-            if (min_possible > max_possible) return alert("Dadu kebanyakan buat target Kecil!");
-            // Pilih total acak antara min dan max
-            targetTotal = Math.floor(Math.random() * (max_possible - min_possible + 1)) + min_possible;
-        } else if (mode === "besar") {
-            let min_possible = Math.max(33, diceCount);
-            let max_possible = diceCount * 6;
-            if (min_possible > max_possible) return alert("Dadu kesedikitan buat target Besar!");
-            // Pilih total acak antara min dan max
-            targetTotal = Math.floor(Math.random() * (max_possible - min_possible + 1)) + min_possible;
-        }
-
-        // Bikin kombinasi dadu yang totalnya pas
-        let arr = new Array(diceCount).fill(1);
-        let remaining = targetTotal - diceCount;
+    function generatePlan(total, count) {
+        if (total < count || total > count * 6) return []; 
+        let arr = new Array(count).fill(1);
+        let remaining = total - count;
         while (remaining > 0) {
-            let idx = Math.floor(Math.random() * diceCount);
+            let idx = Math.floor(originalRandom() * count);
             if (arr[idx] < 6) { arr[idx]++; remaining--; }
         }
+        return arr;
+    }
+
+    function setMode(mode) {
+        let count = parseInt(document.getElementById('dadu-count').value) || 9;
+        diceCount = count;
         
-        // Acak urutan biar gak ketauan
-        for (let i = arr.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [arr[i], arr[j]] = [arr[j], arr[i]];
+        if (mode === "kecil") {
+            let upper_bound = Math.min(30, diceCount * 6);
+            if (diceCount > upper_bound) return alert("Dadu kebanyakan buat target Kecil!");
+            targetTotal = Math.floor(originalRandom() * (upper_bound - diceCount + 1)) + diceCount;
+        } else if (mode === "besar") {
+            let min_possible = Math.max(33, diceCount);
+            if (min_possible > diceCount * 6) return alert("Dadu kesedikitan buat target Besar!");
+            targetTotal = Math.floor(originalRandom() * (diceCount * 6 - min_possible + 1)) + min_possible;
+        } else {
+            plannedValues = [];
+            isRolling = false;
+            if(timeoutId) clearTimeout(timeoutId);
+            document.getElementById('dadu-status').innerText = "Status: Acak Normal";
+            return;
         }
 
-        plannedValues = arr;
+        plannedValues = generatePlan(targetTotal, diceCount);
+        seqIndex = 0;
         document.getElementById('dadu-status').innerText = `Target: ${targetTotal} (${mode.toUpperCase()})`;
     }
 
-    function forceDOM() {
-        if (plannedValues.length === 0) return;
-
-        let walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
-        let node;
-        let diceNodes = [];
-        let totalNode = null;
-
-        while (node = walker.nextNode()) {
-            if (node.parentElement && node.parentElement.offsetParent !== null) {
-                let text = node.nodeValue.trim();
-                
-                // Kumpulin Text Node Dadu
-                if (/^[1-6]$/.test(text) && !node.parentElement.closest('button')) {
-                    // Cek ukuran font biar gak salah target
-                    let fs = parseInt(window.getComputedStyle(node.parentElement).fontSize);
-                    if (fs >= 16) diceNodes.push(node);
-                }
-                
-                // Cari Text Node Total
-                if (text === 'Total') {
-                    let parent = node.parentElement;
-                    if (parent && parent.parentElement) {
-                        let siblings = parent.parentElement.childNodes;
-                        for (let s of siblings) {
-                            if (s.nodeType === 3 && /^\d+$/.test(s.nodeValue.trim())) {
-                                totalNode = s;
-                            } else if (s.nodeType === 1 && /^\d+$/.test(s.innerText.trim())) {
-                                totalNode = s.firstChild;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Timpa Angka
-        if (diceNodes.length >= diceCount) {
-            for (let i = 0; i < diceCount; i++) {
-                if (diceNodes[i].nodeValue !== plannedValues[i].toString()) {
-                    diceNodes[i].nodeValue = plannedValues[i].toString();
-                }
-            }
-        }
-        if (totalNode && totalNode.nodeValue !== targetTotal.toString()) {
-            totalNode.nodeValue = targetTotal.toString();
-        }
-    }
-
-    // Deteksi klik tombol Lembar
     document.addEventListener('pointerdown', function(e) {
         let btn = e.target.closest('button') || e.target.parentElement;
         if(btn && btn.innerText && (btn.innerText.includes('Lembar') || btn.innerText.includes('Roll'))) {
-            if (plannedValues.length > 0 && !isHijacking) {
-                isHijacking = true;
-                let startTime = performance.now();
-                
-                // Pake requestAnimationFrame biar lebih cepet dari React
-                function loop() {
-                    forceDOM();
-                    // Jalanin selama 4 detik (4000ms)
-                    if (performance.now() - startTime < 4000) {
-                        requestAnimationFrame(loop);
-                    } else {
-                        isHijacking = false;
-                    }
-                }
-                requestAnimationFrame(loop);
+            if (plannedValues.length > 0) {
+                isRolling = true;
+                seqIndex = 0;
+                if(timeoutId) clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => { isRolling = false; }, 5000);
             }
         }
     }, true);
 
-    // --- UI TRANSPARAN ---
+    Math.random = function() {
+        if (isRolling && plannedValues.length > 0) {
+            let val = plannedValues[seqIndex];
+            seqIndex = (seqIndex + 1) % plannedValues.length;
+            return (val - 1 + 0.99) / 6; 
+        }
+        return originalRandom();
+    };
+
+    if (window.crypto && originalCrypto) {
+        window.crypto.getRandomValues = function(array) {
+            if (isRolling && plannedValues.length > 0) {
+                for (let i = 0; i < array.length; i++) {
+                    let val = plannedValues[seqIndex];
+                    seqIndex = (seqIndex + 1) % plannedValues.length;
+                    array[i] = Math.floor(((val - 1 + 0.99) / 6) * 256);
+                }
+                return array;
+            }
+            return originalCrypto.apply(window.crypto, arguments);
+        };
+    }
+
+    // --- UI TRANSPARAN (Sama kayak sebelumnya) ---
     const ui = document.createElement('div');
     ui.id = 'dadu-hack-ui';
     ui.style.cssText = `
