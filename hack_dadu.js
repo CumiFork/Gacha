@@ -15,6 +15,7 @@ setTimeout(function() {
     let isRolling = false;
     let timeoutId = null;
 
+    // Fungsi pembuat kombinasi dadu
     function generatePlan(total, count) {
         if (total < count || total > count * 6) return []; 
         let arr = new Array(count).fill(1);
@@ -31,13 +32,23 @@ setTimeout(function() {
         diceCount = count;
         
         if (mode === "kecil") {
-            let upper_bound = Math.min(30, diceCount * 6);
-            if (diceCount > upper_bound) return alert("Dadu kebanyakan buat target Kecil!");
-            targetTotal = Math.floor(originalRandom() * (upper_bound - diceCount + 1)) + diceCount;
+            let min_possible = diceCount;
+            let max_possible = Math.min(30, diceCount * 6);
+            
+            if (min_possible > max_possible) return alert("Dadu kebanyakan buat target Kecil!");
+            
+            // Random antara min dan max (misal 9 sampai 30)
+            targetTotal = Math.floor(originalRandom() * (max_possible - min_possible + 1)) + min_possible;
+            
         } else if (mode === "besar") {
             let min_possible = Math.max(33, diceCount);
-            if (min_possible > diceCount * 6) return alert("Dadu kesedikitan buat target Besar!");
-            targetTotal = Math.floor(originalRandom() * (diceCount * 6 - min_possible + 1)) + min_possible;
+            let max_possible = diceCount * 6;
+            
+            if (min_possible > max_possible) return alert("Dadu kesedikitan buat target Besar!");
+            
+            // Random antara min dan max (misal 33 sampai 54)
+            targetTotal = Math.floor(originalRandom() * (max_possible - min_possible + 1)) + min_possible;
+            
         } else {
             plannedValues = [];
             document.getElementById('dadu-status').innerText = "Status: Acak Normal";
@@ -49,21 +60,62 @@ setTimeout(function() {
         document.getElementById('dadu-status').innerText = `Target: ${targetTotal} (${mode.toUpperCase()})`;
     }
 
-    // --- PAKE MUTATION OBSERVER (Sama kaya Flutter V37) ---
-    // Ini bakal nangkep perubahan pas dadu muter dan maksa angkanya berubah
-    const observer = new MutationObserver(function(mutations) {
+    // --- 1. HOOK MATH.RANDOM PAKE OBJECT.DEFINEPROPERTY (ANTI DI-RESTORE) ---
+    Object.defineProperty(Math, 'random', {
+        value: function() {
+            try {
+                if (isRolling && plannedValues.length > 0) {
+                    let val = plannedValues[seqIndex];
+                    seqIndex = (seqIndex + 1) % plannedValues.length;
+                    return (val - 1 + 0.99) / 6; 
+                }
+            } catch(e) {}
+            return originalRandom();
+        },
+        writable: false,
+        configurable: false
+    });
+
+    // --- 2. HOOK CRYPTO ---
+    if (window.crypto && originalCrypto) {
+        Object.defineProperty(window.crypto, 'getRandomValues', {
+            value: function(array) {
+                try {
+                    if (isRolling && plannedValues.length > 0) {
+                        for (let i = 0; i < array.length; i++) {
+                            let val = plannedValues[seqIndex];
+                            seqIndex = (seqIndex + 1) % plannedValues.length;
+                            array[i] = Math.floor(((val - 1 + 0.99) / 6) * 256);
+                        }
+                        return array;
+                    }
+                } catch(e) {}
+                return originalCrypto.apply(window.crypto, arguments);
+            },
+            writable: false,
+            configurable: false
+        });
+    }
+
+    // --- 3. OVERWRITE DOM PAKE MUTATION OBSERVER ---
+    const observer = new MutationObserver(function() {
         if (!isRolling || plannedValues.length === 0) return;
         
-        // Overwrite DOM secara instan
         let diceEls = [];
         let totalEl = null;
         
-        document.querySelectorAll('div, span, [role="img"]').forEach(el => {
+        // Sapu semua elemen teks
+        document.querySelectorAll('div, span, text, p').forEach(el => {
             if (el.offsetParent !== null && el.innerText) {
                 let text = el.innerText.trim();
+                
+                // Cari dadu (1-6)
                 if (/^[1-6]$/.test(text) && el.children.length === 0) {
-                    diceEls.push(el);
+                    let fs = parseInt(window.getComputedStyle(el).fontSize);
+                    if (fs >= 16) diceEls.push(el);
                 }
+                
+                // Cari Total
                 if (text === 'Total') {
                     let parent = el.parentElement;
                     if (parent) {
@@ -75,6 +127,7 @@ setTimeout(function() {
             }
         });
         
+        // Timpa Angka
         if (diceEls.length >= diceCount) {
             for (let i = 0; i < diceCount; i++) {
                 if (diceEls[i] && diceEls[i].innerText !== plannedValues[i].toString()) {
@@ -87,11 +140,9 @@ setTimeout(function() {
         }
     });
 
-    // Mulai observasi
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
 
-
-    // --- HOOK MATH.RANDOM & CRYPTO (Biar Mesin Google Ngikutin) ---
+    // --- 4. DETEKSI KLIK LEMPAR ---
     document.addEventListener('pointerdown', function(e) {
         let btn = e.target.closest('button') || e.target.parentElement;
         if(btn && btn.innerText && (btn.innerText.includes('Lembar') || btn.innerText.includes('Roll'))) {
@@ -99,39 +150,12 @@ setTimeout(function() {
                 isRolling = true;
                 seqIndex = 0;
                 if(timeoutId) clearTimeout(timeoutId);
-                timeoutId = setTimeout(() => { isRolling = false; }, 4000); 
+                timeoutId = setTimeout(() => { isRolling = false; }, 4000); // Kunci 4 detik
             }
         }
     }, true);
 
-    Math.random = function() {
-        try {
-            if (isRolling && plannedValues.length > 0) {
-                let val = plannedValues[seqIndex];
-                seqIndex = (seqIndex + 1) % plannedValues.length;
-                return (val - 1 + 0.99) / 6; 
-            }
-        } catch(e) {}
-        return originalRandom();
-    };
-
-    if (window.crypto && originalCrypto) {
-        window.crypto.getRandomValues = function(array) {
-            try {
-                if (isRolling && plannedValues.length > 0) {
-                    for (let i = 0; i < array.length; i++) {
-                        let val = plannedValues[seqIndex];
-                        seqIndex = (seqIndex + 1) % plannedValues.length;
-                        array[i] = Math.floor(((val - 1 + 0.99) / 6) * 256);
-                    }
-                    return array;
-                }
-            } catch(e) {}
-            return originalCrypto.apply(window.crypto, arguments);
-        };
-    }
-
-    // Bikin UI
+    // --- 5. UI TRANSPARAN ---
     const ui = document.createElement('div');
     ui.id = 'dadu-hack-ui';
     ui.style.cssText = `
@@ -155,8 +179,8 @@ setTimeout(function() {
                 <input type="number" id="dadu-count" value="9" style="width: 40px; background: transparent; color: #fff; border: 1px solid #555; border-radius: 4px; text-align:center;">
             </div>
             <div style="display: flex; gap: 5px; margin-bottom: 8px;">
-                <button id="btn-kecil" style="flex:1; padding: 6px; background: #4285F4; color: white; border: none; border-radius: 4px; cursor:pointer;">Kecil</button>
-                <button id="btn-besar" style="flex:1; padding: 6px; background: #EA4335; color: white; border: none; border-radius: 4px; cursor:pointer;">Besar</button>
+                <button id="btn-kecil" style="flex:1; padding: 6px; background: #4285F4; color: white; border: none; border-radius: 4px; cursor:pointer;">Kecil (<31)</button>
+                <button id="btn-besar" style="flex:1; padding: 6px; background: #EA4335; color: white; border: none; border-radius: 4px; cursor:pointer;">Besar (>32)</button>
             </div>
             <div id="dadu-status" style="text-align: center; font-size: 11px; color: #00ff00;">Status: Menunggu</div>
         </div>
