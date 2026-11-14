@@ -1,4 +1,4 @@
-(function() {
+setTimeout(function() {
     if (window.daduHacked) {
         alert("Script dadu udah aktif bro!");
         return;
@@ -6,6 +6,8 @@
     window.daduHacked = true;
 
     const originalRandom = Math.random;
+    const originalCrypto = window.crypto ? window.crypto.getRandomValues : null;
+    
     let targetTotal = 24; 
     let diceCount = 9; 
     let plannedValues = [];
@@ -47,13 +49,14 @@
         document.getElementById('dadu-status').innerText = `Target: ${targetTotal} (${mode.toUpperCase()})`;
     }
 
-    document.addEventListener('click', function(e) {
+    document.addEventListener('pointerdown', function(e) {
         let btn = e.target.closest('button') || e.target.parentElement;
         if(btn && btn.innerText && (btn.innerText.includes('Lembar') || btn.innerText.includes('Roll'))) {
             if (plannedValues.length > 0) {
                 isRolling = true;
+                seqIndex = 0;
                 if(timeoutId) clearTimeout(timeoutId);
-                timeoutId = setTimeout(() => { isRolling = false; }, 3500);
+                timeoutId = setTimeout(() => { isRolling = false; }, 4000); 
             }
         }
     }, true);
@@ -69,16 +72,31 @@
         return originalRandom();
     };
 
+    if (window.crypto && originalCrypto) {
+        window.crypto.getRandomValues = function(array) {
+            try {
+                if (isRolling && plannedValues.length > 0) {
+                    for (let i = 0; i < array.length; i++) {
+                        let val = plannedValues[seqIndex];
+                        seqIndex = (seqIndex + 1) % plannedValues.length;
+                        array[i] = Math.floor(((val - 1 + 0.99) / 6) * 256);
+                    }
+                    return array;
+                }
+            } catch(e) {}
+            return originalCrypto.apply(window.crypto, arguments);
+        };
+    }
+
     const ui = document.createElement('div');
     ui.id = 'dadu-hack-ui';
     ui.style.cssText = `
         position: fixed; top: 80px; left: 10px; z-index: 999999;
-        background: rgba(20, 20, 20, 0.6); backdrop-filter: blur(5px);
+        background: rgba(20, 20, 20, 0.8); backdrop-filter: blur(5px);
         color: #fff; padding: 12px; border-radius: 12px;
         font-family: sans-serif; font-size: 13px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         border: 1px solid rgba(255,255,255,0.2);
-        transition: opacity 0.3s ease;
         width: 180px; user-select: none;
     `;
 
@@ -130,6 +148,4 @@
 
     document.getElementById('btn-kecil').onclick = () => setMode('kecil');
     document.getElementById('btn-besar').onclick = () => setMode('besar');
-
-    console.log("🎲 UI Dadu Hack Aktif!");
-})();
+}, 2000);
