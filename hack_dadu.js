@@ -5,7 +5,7 @@ setTimeout(function() {
     let diceCount = 9;
     let targetTotal = 24;
     let plannedValues = [];
-    let rollInterval = null;
+    let isHijacking = false;
 
     function setMode(mode) {
         diceCount = parseInt(document.getElementById('dadu-count').value) || 9;
@@ -14,15 +14,17 @@ setTimeout(function() {
             let min_possible = diceCount;
             let max_possible = Math.min(30, diceCount * 6);
             if (min_possible > max_possible) return alert("Dadu kebanyakan buat target Kecil!");
+            // Pilih total acak antara min dan max
             targetTotal = Math.floor(Math.random() * (max_possible - min_possible + 1)) + min_possible;
         } else if (mode === "besar") {
             let min_possible = Math.max(33, diceCount);
             let max_possible = diceCount * 6;
             if (min_possible > max_possible) return alert("Dadu kesedikitan buat target Besar!");
+            // Pilih total acak antara min dan max
             targetTotal = Math.floor(Math.random() * (max_possible - min_possible + 1)) + min_possible;
         }
 
-        // Bikin kombinasi dadu
+        // Bikin kombinasi dadu yang totalnya pas
         let arr = new Array(diceCount).fill(1);
         let remaining = targetTotal - diceCount;
         while (remaining > 0) {
@@ -43,78 +45,71 @@ setTimeout(function() {
     function forceDOM() {
         if (plannedValues.length === 0) return;
 
-        // 1. Cari Elemen Total
-        let totalEl = null;
-        document.querySelectorAll('div, span').forEach(el => {
-            if (el.innerText && el.innerText.trim() === 'Total') {
-                let parent = el.parentElement;
-                if (parent) {
-                    Array.from(parent.children).forEach(child => {
-                        if (/^\d+$/.test(child.innerText.trim())) totalEl = child;
-                    });
+        let walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        let diceNodes = [];
+        let totalNode = null;
+
+        while (node = walker.nextNode()) {
+            if (node.parentElement && node.parentElement.offsetParent !== null) {
+                let text = node.nodeValue.trim();
+                
+                // Kumpulin Text Node Dadu
+                if (/^[1-6]$/.test(text) && !node.parentElement.closest('button')) {
+                    // Cek ukuran font biar gak salah target
+                    let fs = parseInt(window.getComputedStyle(node.parentElement).fontSize);
+                    if (fs >= 16) diceNodes.push(node);
                 }
-            }
-        });
-
-        // 2. Cari Elemen Dadu (Pake aria-label Google)
-        let diceEls = [];
-        document.querySelectorAll('[aria-label^="Die showing"], [aria-label^="Dadu menunjukkan"]').forEach(el => {
-            if (el.offsetParent !== null) diceEls.push(el);
-        });
-
-        // Fallback kalo aria-label gak nemu
-        if (diceEls.length < diceCount) {
-            diceEls = [];
-            document.querySelectorAll('div, span, text').forEach(el => {
-                if (el.offsetParent !== null && /^[1-6]$/.test(el.innerText.trim())) {
-                    let fs = parseInt(window.getComputedStyle(el).fontSize);
-                    if (fs >= 16 && !el.parentElement.innerText.includes('Total')) {
-                        diceEls.push(el);
+                
+                // Cari Text Node Total
+                if (text === 'Total') {
+                    let parent = node.parentElement;
+                    if (parent && parent.parentElement) {
+                        let siblings = parent.parentElement.childNodes;
+                        for (let s of siblings) {
+                            if (s.nodeType === 3 && /^\d+$/.test(s.nodeValue.trim())) {
+                                totalNode = s;
+                            } else if (s.nodeType === 1 && /^\d+$/.test(s.innerText.trim())) {
+                                totalNode = s.firstChild;
+                            }
+                        }
                     }
                 }
-            });
+            }
         }
 
-        // 3. Timpa Angka Dadu
-        if (diceEls.length >= diceCount) {
+        // Timpa Angka
+        if (diceNodes.length >= diceCount) {
             for (let i = 0; i < diceCount; i++) {
-                if (diceEls[i]) {
-                    let val = plannedValues[i].toString();
-                    if (diceEls[i].tagName.toLowerCase() === 'text') {
-                        diceEls[i].textContent = val;
-                    } else {
-                        diceEls[i].innerText = val;
-                    }
-                    if (diceEls[i].hasAttribute('aria-label')) {
-                        diceEls[i].setAttribute('aria-label', `Die showing ${val}`);
-                    }
+                if (diceNodes[i].nodeValue !== plannedValues[i].toString()) {
+                    diceNodes[i].nodeValue = plannedValues[i].toString();
                 }
             }
         }
-
-        // 4. Timpa Total
-        if (totalEl && totalEl.innerText !== targetTotal.toString()) {
-            totalEl.innerText = targetTotal;
+        if (totalNode && totalNode.nodeValue !== targetTotal.toString()) {
+            totalNode.nodeValue = targetTotal.toString();
         }
     }
 
-    // Deteksi Klik Lembar (Pake pointerdown biar cepet)
+    // Deteksi klik tombol Lembar
     document.addEventListener('pointerdown', function(e) {
         let btn = e.target.closest('button') || e.target.parentElement;
         if(btn && btn.innerText && (btn.innerText.includes('Lembar') || btn.innerText.includes('Roll'))) {
-            if (plannedValues.length > 0) {
-                if (rollInterval) clearInterval(rollInterval);
+            if (plannedValues.length > 0 && !isHijacking) {
+                isHijacking = true;
+                let startTime = performance.now();
                 
-                let loops = 0;
-                // Tembak DOM tiap 50 milidetik selama 4 detik penuh!
-                rollInterval = setInterval(() => {
-                    loops++;
-                    if (loops > 80) { 
-                        clearInterval(rollInterval);
-                        return;
-                    }
+                // Pake requestAnimationFrame biar lebih cepet dari React
+                function loop() {
                     forceDOM();
-                }, 50);
+                    // Jalanin selama 4 detik (4000ms)
+                    if (performance.now() - startTime < 4000) {
+                        requestAnimationFrame(loop);
+                    } else {
+                        isHijacking = false;
+                    }
+                }
+                requestAnimationFrame(loop);
             }
         }
     }, true);
