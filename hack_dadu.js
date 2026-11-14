@@ -1,5 +1,8 @@
 setTimeout(function() {
-    if (window.daduHacked) return;
+    if (window.daduHacked) {
+        alert("Script dadu udah aktif bro!");
+        return;
+    }
     window.daduHacked = true;
 
     const originalRandom = Math.random;
@@ -12,6 +15,7 @@ setTimeout(function() {
     let isRolling = false;
     let timeoutId = null;
 
+    // 1. Logika Pembuat Dadu
     function generatePlan(total, count) {
         if (total < count || total > count * 6) return []; 
         let arr = new Array(count).fill(1);
@@ -48,6 +52,7 @@ setTimeout(function() {
         document.getElementById('dadu-status').innerText = `Target: ${targetTotal} (${mode.toUpperCase()})`;
     }
 
+    // 2. Deteksi Klik Lembar
     document.addEventListener('pointerdown', function(e) {
         let btn = e.target.closest('button') || e.target.parentElement;
         if(btn && btn.innerText && (btn.innerText.includes('Lembar') || btn.innerText.includes('Roll'))) {
@@ -55,11 +60,13 @@ setTimeout(function() {
                 isRolling = true;
                 seqIndex = 0;
                 if(timeoutId) clearTimeout(timeoutId);
+                // Kunci 5 detik penuh (sesuai V37)
                 timeoutId = setTimeout(() => { isRolling = false; }, 5000);
             }
         }
     }, true);
 
+    // 3. HOOK MATH.RANDOM (Kunci Utama)
     Math.random = function() {
         if (isRolling && plannedValues.length > 0) {
             let val = plannedValues[seqIndex];
@@ -69,6 +76,7 @@ setTimeout(function() {
         return originalRandom();
     };
 
+    // 4. HOOK CRYPTO
     if (window.crypto && originalCrypto) {
         window.crypto.getRandomValues = function(array) {
             if (isRolling && plannedValues.length > 0) {
@@ -83,7 +91,7 @@ setTimeout(function() {
         };
     }
 
-    // --- UI TRANSPARAN (Sama kayak sebelumnya) ---
+    // 5. UI TRANSPARAN MELAYANG
     const ui = document.createElement('div');
     ui.id = 'dadu-hack-ui';
     ui.style.cssText = `
