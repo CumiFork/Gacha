@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">CppRootOverlay</string>
+    <string name="overlay_channel_name">Floating Overlay</string>
+    <string name="overlay_channel_desc">Keeps the floating overlay menu active</string>
+</resources>
