@@ -381,11 +381,13 @@ static bool world_to_screen(const Vec3& world, const Vec3& camPos, const Quat& c
     invRot.m[8]=rot.m[2]; invRot.m[9]=rot.m[6]; invRot.m[10]=rot.m[10];
     Vec3 rel{world.x-camPos.x, world.y-camPos.y, world.z-camPos.z};
     float vw;
-    Vec3 view = mat4_mul_vec3(invRot, rel, 1.0f, vw); // +Z forward
+    Vec3 view = mat4_mul_vec3(invRot, rel, 1.0f, vw); // +Z forward in Unity
     if(view.z < 0.1f) return false;
+    // Convert Unity view (+Z forward) to OpenGL view (-Z forward) for projection
+    Vec3 viewGL{view.x, view.y, -view.z};
     Mat4 proj = perspective(fovDeg, (float)sw/(float)sh, 0.1f, 1000.0f);
     float cw;
-    Vec3 clip = mat4_mul_vec3(proj, view, 1.0f, cw);
+    Vec3 clip = mat4_mul_vec3(proj, viewGL, 1.0f, cw);
     if(fabsf(cw) < 1e-6f) return false;
     float ndcX = clip.x / cw;
     float ndcY = clip.y / cw;
@@ -496,7 +498,7 @@ int main(int argc, char** argv) {
         rc.detach();
         emit_frame(cfg.screenW, cfg.screenH, lines);
         frameCount++;
-        if(frameCount % 30 == 0) fprintf(stderr, "[esp] frame=%d lines=%zu\n", frameCount, lines.size());
+        if(frameCount % 30 == 0) fprintf(stderr, "[esp] frame=%d lines=%zu local=%llx match=%llx\n", frameCount, lines.size(), (unsigned long long)local, (unsigned long long)match);
         std::this_thread::sleep_for(std::chrono::milliseconds(80)); // ~12fps, attach/detach per frame
     }
     return 0;
