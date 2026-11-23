@@ -256,8 +256,8 @@ class FloatingMenuService : Service() {
             val msg = try {
                 val tmpDir = File(cacheDir, "aimlock")
                 if (!tmpDir.exists()) tmpDir.mkdirs()
-                val assets = assets.list("aimlock") ?: emptyArray()
-                for (name in assets) {
+                val assetNames = assets.list("aimlock") ?: emptyArray()
+                for (name in assetNames) {
                     assets.open("aimlock/$name").use { input ->
                         FileOutputStream(File(tmpDir, name)).use { output -> input.copyTo(output) }
                     }
