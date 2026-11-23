@@ -234,6 +234,38 @@
                     android:textSize="12sp" />
 
                 <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="ESP Line (C++)"
+                    android:textColor="@color/accent"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnStartEsp"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/bg_button"
+            app:backgroundTint="@null"
+                    android:text="Start ESP Line"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnStopEsp"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/bg_button"
+            app:backgroundTint="@null"
+                    android:text="Stop ESP Line"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp" />
+
+                <TextView
                     android:id="@+id/tvOutput"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

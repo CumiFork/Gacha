@@ -25,8 +25,11 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import android.content.pm.ServiceInfo
 import com.topjohnwu.superuser.Shell
+import org.json.JSONObject
+import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStreamReader
 import java.util.concurrent.Executors
 import kotlin.math.abs
 
@@ -53,6 +56,11 @@ class FloatingMenuService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
     private var telemetryRunning = false
+
+    private var espProcess: Process? = null
+    private var espThread: Thread? = null
+    private var espOverlayView: EspOverlayView? = null
+    private var espOverlayAdded = false
 
     private val telemetryRunnable = object : Runnable {
         override fun run() {
@@ -86,6 +94,13 @@ class FloatingMenuService : Service() {
     override fun onDestroy() {
         telemetryRunning = false
         handler.removeCallbacks(telemetryRunnable)
+        stopEspLine()
+        try {
+            if (espOverlayAdded && espOverlayView != null) {
+                windowManager.removeView(espOverlayView)
+            }
+        } catch (_: Throwable) {}
+        espOverlayAdded = false
         try {
             if (::overlayView.isInitialized) windowManager.removeView(overlayView)
         } catch (_: Throwable) {}
@@ -179,6 +194,8 @@ class FloatingMenuService : Service() {
         overlayView.findViewById<Button>(R.id.btnToggleHitbox).setOnClickListener { toggleAimlockSetting("hitbox_expand") }
         overlayView.findViewById<Button>(R.id.btnToggleNoRecoil).setOnClickListener { toggleAimlockSetting("no_recoil") }
         overlayView.findViewById<Button>(R.id.btnToggleSniperOnly).setOnClickListener { toggleAimlockSetting("sniper_only") }
+        overlayView.findViewById<Button>(R.id.btnStartEsp).setOnClickListener { startEspLine() }
+        overlayView.findViewById<Button>(R.id.btnStopEsp).setOnClickListener { stopEspLine() }
 
         makeDraggable(bubbleView, params, onTap = { showPanel(params) })
         makeDraggable(panelHeader, params, onTap = null)
@@ -336,6 +353,128 @@ class FloatingMenuService : Service() {
                 "Toggle failed: ${e.message}"
             }
             handler.post { tvOutput.text = msg }
+        }
+    }
+
+    private fun ensureEspOverlay() {
+        if (espOverlayAdded && espOverlayView != null) return
+        if (!::windowManager.isInitialized) windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.TOP or Gravity.START }
+        val view = EspOverlayView(this)
+        windowManager.addView(view, params)
+        espOverlayView = view
+        espOverlayAdded = true
+    }
+
+    private fun startEspLine() {
+        if (espProcess != null) {
+            tvOutput.text = "ESP sudah berjalan"
+            return
+        }
+        tvOutput.text = "Starting ESP line..."
+        executor.execute {
+            try {
+                ensureEspOverlayOnMain()
+                val metrics = resources.displayMetrics
+                val sw = metrics.widthPixels
+                val sh = metrics.heightPixels
+
+                // Copy espline binary from nativeLibraryDir to /data/local/tmp
+                val nativeDir = applicationInfo.nativeLibraryDir
+                val src = File(nativeDir, "libespline.so")
+                if (!src.exists()) {
+                    handler.post { tvOutput.text = "libespline.so tidak ditemukan di $nativeDir" }
+                    return@execute
+                }
+                val installCmd = """
+                    mkdir -p $AIMLOCK_DIR
+                    cp ${src.absolutePath} $AIMLOCK_DIR/libespline.so
+                    chmod 755 $AIMLOCK_DIR/libespline.so
+                    cp ${src.absolutePath.replace("/lib/arm64-v8a","/lib/arm64-v8a")} $AIMLOCK_DIR/libespline.so 2>/dev/null || true
+                """.trimIndent()
+                Shell.cmd(installCmd).exec()
+
+                // ensure config exists
+                Shell.cmd("test -f $AIMLOCK_DIR/ff_rvas.json || echo missing").exec()
+
+                val cmd = arrayOf("su", "-c", "cd $AIMLOCK_DIR && ./libespline.so $AIMLOCK_DIR/ff_rvas.json $sw $sh 2>>$AIMLOCK_DIR/esp.log")
+                val proc = Runtime.getRuntime().exec(cmd)
+                espProcess = proc
+
+                val readerThread = Thread {
+                    try {
+                        BufferedReader(InputStreamReader(proc.inputStream)).use { br ->
+                            var line: String?
+                            while (br.readLine().also { line = it } != null) {
+                                val l = line ?: continue
+                                if (!l.startsWith("{")) continue
+                                try {
+                                    val obj = JSONObject(l)
+                                    if (obj.optString("type") != "frame") continue
+                                    val arr = obj.optJSONArray("lines") ?: continue
+                                    val parsed = ArrayList<EspOverlayView.Line>(arr.length())
+                                    for (i in 0 until arr.length()) {
+                                        val o = arr.getJSONObject(i)
+                                        parsed.add(EspOverlayView.Line(
+                                            o.optDouble("x1").toFloat(),
+                                            o.optDouble("y1").toFloat(),
+                                            o.optDouble("x2").toFloat(),
+                                            o.optDouble("y2").toFloat()
+                                        ))
+                                    }
+                                    handler.post { espOverlayView?.updateLines(parsed) }
+                                } catch (_: Throwable) {}
+                            }
+                        }
+                    } catch (_: Throwable) {}
+                    handler.post {
+                        espOverlayView?.clearLines()
+                        tvOutput.text = "ESP line stopped"
+                    }
+                    espProcess = null
+                }
+                readerThread.isDaemon = true
+                readerThread.start()
+                espThread = readerThread
+                handler.post { tvOutput.text = "ESP line aktif ($sw x $sh)" }
+            } catch (e: Throwable) {
+                handler.post { tvOutput.text = "ESP start failed: ${e.message}" }
+            }
+        }
+    }
+
+    private fun ensureEspOverlayOnMain() {
+        val latch = java.util.concurrent.CountDownLatch(1)
+        handler.post {
+            try { ensureEspOverlay() } catch (_: Throwable) {}
+            latch.countDown()
+        }
+        latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+    }
+
+    private fun stopEspLine() {
+        try {
+            espProcess?.destroy()
+        } catch (_: Throwable) {}
+        espProcess = null
+        try {
+            Shell.cmd("pkill -f libespline.so 2>/dev/null || true").exec()
+        } catch (_: Throwable) {}
+        handler.post {
+            espOverlayView?.clearLines()
+            tvOutput.text = "ESP line dimatikan"
         }
     }
 }

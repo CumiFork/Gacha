@@ -24,7 +24,8 @@
     "Recoil.GetDelta": "0x74BB99C",
     "CapsuleCollider.set_radius": "0xA042B34",
     "CapsuleCollider.set_height": "0xA042BBC",
-    "CapsuleCollider.get_radius": "0xA042AF8"
+    "CapsuleCollider.get_radius": "0xA042AF8",
+    "Camera.get_fieldOfView": "0x9F8E448"
   },
   "fields": {
     "match.player_list": "0x158",
@@ -44,6 +45,10 @@
     "sniper_only": true,
     "hitbox_expand": true,
     "hitbox_radius": 1.2,
-    "hitbox_height": 2.0
+    "hitbox_height": 2.0,
+    "aim_fov": 45.0,
+    "esp_enabled": true,
+    "esp_teammate_skip": true,
+    "esp_fov": 75.0
   }
 }
