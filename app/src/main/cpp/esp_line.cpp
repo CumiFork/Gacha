@@ -131,9 +131,6 @@ static u64 elf_load_bias(int pid, const std::string& lib, u64 sampleRva) {
 }
 
 // ---- ptrace remote call (ARM64) ----
-struct user_pt_regs_arm64 { uint64_t regs[31]; uint64_t sp; uint64_t pc; uint64_t pstate; };
-struct user_fpsimd_state_arm64 { __uint128_t vregs[32]; uint32_t fpsr; uint32_t fpcr; uint32_t __reserved[2]; };
-// Use raw buffers for portability (NDK headers may differ)
 struct PtRegs { u64 regs[31]; u64 sp; u64 pc; u64 pstate; };
 struct FpRegs { u8 data[512]; }; // 32*16 + 4+4+8
 
