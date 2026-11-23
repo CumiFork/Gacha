@@ -455,20 +455,28 @@ int main(int argc, char** argv) {
 
         u64 local = cfg.r_curLocal ? rc.call_ptr(cfg.r_curLocal, 0, false) : 0;
         u64 match = cfg.r_curMatch ? rc.call_ptr(cfg.r_curMatch, 0, false) : 0;
+        int dbgPlayers = 0;
+        u64 dbgCamTf = 0;
+        bool dbgOkPos=false, dbgOkRot=false;
         if(local && match) {
             u64 camTf = cfg.r_mainCam ? rc.call_ptr(cfg.r_mainCam, local, true) : 0;
+            dbgCamTf = camTf;
             Vec3 camPos{}; Quat camRot{};
             bool okPos=false, okRot=false;
             if(camTf && cfg.r_getPos) okPos = rc.call_vec3(cfg.r_getPos, camTf, camPos);
             if(camTf && cfg.r_camRot) okRot = rc.call_quat(cfg.r_camRot, camTf, camRot);
+            dbgOkPos=okPos; dbgOkRot=okRot;
             if(okPos && okRot) {
                 std::vector<u64> players;
-                auto la = read_il2cpp_list(pid, match + cfg.f_matchPlayers);
-                auto lb = read_il2cpp_list(pid, match + cfg.f_matchPlayersAlt);
+                u64 listA = read_ptr(pid, match + cfg.f_matchPlayers);
+                u64 listB = read_ptr(pid, match + cfg.f_matchPlayersAlt);
+                auto la = read_il2cpp_list(pid, listA);
+                auto lb = read_il2cpp_list(pid, listB);
                 players.insert(players.end(), la.begin(), la.end());
                 players.insert(players.end(), lb.begin(), lb.end());
                 std::sort(players.begin(), players.end());
                 players.erase(std::unique(players.begin(), players.end()), players.end());
+                dbgPlayers = (int)players.size();
                 for(u64 p: players) {
                     if(!p || p==local) continue;
                     if(cfg.esp_teammate_skip && cfg.r_isTeammate) {
@@ -498,7 +506,7 @@ int main(int argc, char** argv) {
         rc.detach();
         emit_frame(cfg.screenW, cfg.screenH, lines);
         frameCount++;
-        if(frameCount % 30 == 0) fprintf(stderr, "[esp] frame=%d lines=%zu local=%llx match=%llx\n", frameCount, lines.size(), (unsigned long long)local, (unsigned long long)match);
+        if(frameCount % 30 == 0) fprintf(stderr, "[esp] frame=%d lines=%zu local=%llx match=%llx cam=%llx pos=%d rot=%d players=%d\n", frameCount, lines.size(), (unsigned long long)local, (unsigned long long)match, (unsigned long long)dbgCamTf, dbgOkPos?1:0, dbgOkRot?1:0, dbgPlayers);
         std::this_thread::sleep_for(std::chrono::milliseconds(80)); // ~12fps, attach/detach per frame
     }
     return 0;
