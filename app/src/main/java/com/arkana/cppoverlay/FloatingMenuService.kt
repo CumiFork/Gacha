@@ -237,8 +237,11 @@ class FloatingMenuService : Service() {
                     val dy = event.rawY.toInt() - downY
                     if (!moved && (abs(dx) > 8 || abs(dy) > 8)) moved = true
                     if (moved) {
-                        params.x = startX + dx
-                        params.y = startY + dy
+                        val dm = resources.displayMetrics
+                        val maxX = (dm.widthPixels - overlayView.width).coerceAtLeast(0)
+                        val maxY = (dm.heightPixels - overlayView.height).coerceAtLeast(0)
+                        params.x = (startX + dx).coerceIn(0, maxX)
+                        params.y = (startY + dy).coerceIn(0, maxY)
                         windowManager.updateViewLayout(overlayView, params)
                     }
                     true
@@ -383,7 +386,7 @@ class FloatingMenuService : Service() {
             tvOutput.text = "ESP sudah berjalan"
             return
         }
-        tvOutput.text = "Starting ESP line..."
+        tvOutput.text = "Menjalankan ESP line..."
         executor.execute {
             try {
                 ensureEspOverlayOnMain()
@@ -391,29 +394,65 @@ class FloatingMenuService : Service() {
                 val sw = metrics.widthPixels
                 val sh = metrics.heightPixels
 
-                // Copy espline binary from nativeLibraryDir to /data/local/tmp
                 val nativeDir = applicationInfo.nativeLibraryDir
                 val src = File(nativeDir, "libespline.so")
                 if (!src.exists()) {
                     handler.post { tvOutput.text = "libespline.so tidak ditemukan di $nativeDir" }
                     return@execute
                 }
-                val installCmd = """
-                    mkdir -p $AIMLOCK_DIR
-                    cp ${src.absolutePath} $AIMLOCK_DIR/libespline.so
-                    chmod 755 $AIMLOCK_DIR/libespline.so
-                    cp ${src.absolutePath.replace("/lib/arm64-v8a","/lib/arm64-v8a")} $AIMLOCK_DIR/libespline.so 2>/dev/null || true
-                """.trimIndent()
-                Shell.cmd(installCmd).exec()
 
-                // ensure config exists
-                Shell.cmd("test -f $AIMLOCK_DIR/ff_rvas.json || echo missing").exec()
+                // Install binary
+                Shell.cmd("mkdir -p $AIMLOCK_DIR", "cp ${src.absolutePath} $AIMLOCK_DIR/libespline.so", "chmod 755 $AIMLOCK_DIR/libespline.so").exec()
 
-                val cmd = arrayOf("su", "-c", "cd $AIMLOCK_DIR && ./libespline.so $AIMLOCK_DIR/ff_rvas.json $sw $sh 2>>$AIMLOCK_DIR/esp.log")
-                val proc = Runtime.getRuntime().exec(cmd)
+                // Install/update config from assets, preserving existing settings toggles
+                try {
+                    val tmpCfg = File(cacheDir, "ff_rvas.json")
+                    assets.open("aimlock/ff_rvas.json").use { input ->
+                        FileOutputStream(tmpCfg).use { output -> input.copyTo(output) }
+                    }
+                    val mergeCmd = """
+                        export PATH=/data/data/com.termux/files/usr/bin:/system/bin:/system/xbin:${'$'}PATH
+                        python3 - <<'PYM'
+import json, os
+src='${tmpCfg.absolutePath}'
+dst='$AIMLOCK_DIR/ff_rvas.json'
+try:
+    d=json.load(open(src))
+    if os.path.exists(dst):
+        try:
+            old=json.load(open(dst))
+            if isinstance(old.get('settings'), dict):
+                d.setdefault('settings',{}).update(old['settings'])
+        except: pass
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    json.dump(d, open(dst,'w'), indent=2)
+    print('ok')
+except Exception as e:
+    print('err',e)
+PYM
+                        chmod 644 $AIMLOCK_DIR/ff_rvas.json 2>/dev/null || true
+                    """.trimIndent()
+                    val m = Shell.cmd(mergeCmd).exec()
+                    if (m.out.none { it.contains("ok") }) {
+                        // fallback: plain copy
+                        Shell.cmd("cp ${tmpCfg.absolutePath} $AIMLOCK_DIR/ff_rvas.json", "chmod 644 $AIMLOCK_DIR/ff_rvas.json").exec()
+                    }
+                } catch (_: Throwable) {
+                    Shell.cmd("test -f $AIMLOCK_DIR/ff_rvas.json || echo missing").exec()
+                }
+
+                // Stop stale esp
+                Shell.cmd("pkill -f libespline.so 2>/dev/null || true").exec()
+                Thread.sleep(200)
+
+                val cmd = arrayOf("su", "-c", "cd $AIMLOCK_DIR && ./libespline.so $AIMLOCK_DIR/ff_rvas.json $sw $sh >> $AIMLOCK_DIR/esp.log 2>&1")
+                // We need stdout for JSON frames, so don't redirect stdout. Redirect stderr only.
+                val cmd2 = arrayOf("su", "-c", "cd $AIMLOCK_DIR && ./libespline.so $AIMLOCK_DIR/ff_rvas.json $sw $sh 2>>$AIMLOCK_DIR/esp.log")
+                val proc = Runtime.getRuntime().exec(cmd2)
                 espProcess = proc
 
                 val readerThread = Thread {
+                    var gotFrame = false
                     try {
                         BufferedReader(InputStreamReader(proc.inputStream)).use { br ->
                             var line: String?
@@ -423,6 +462,10 @@ class FloatingMenuService : Service() {
                                 try {
                                     val obj = JSONObject(l)
                                     if (obj.optString("type") != "frame") continue
+                                    if (!gotFrame) {
+                                        gotFrame = true
+                                        handler.post { tvOutput.text = "ESP aktif ($sw x $sh)" }
+                                    }
                                     val arr = obj.optJSONArray("lines") ?: continue
                                     val parsed = ArrayList<EspOverlayView.Line>(arr.length())
                                     for (i in 0 until arr.length()) {
@@ -439,16 +482,17 @@ class FloatingMenuService : Service() {
                             }
                         }
                     } catch (_: Throwable) {}
+                    val exitCode = try { proc.waitFor() } catch (_: Throwable) { -1 }
                     handler.post {
                         espOverlayView?.clearLines()
-                        tvOutput.text = "ESP line stopped"
+                        tvOutput.text = if (gotFrame) "ESP line stopped" else "ESP berhenti (exit=$exitCode). Cek $AIMLOCK_DIR/esp.log"
                     }
                     espProcess = null
                 }
                 readerThread.isDaemon = true
                 readerThread.start()
                 espThread = readerThread
-                handler.post { tvOutput.text = "ESP line aktif ($sw x $sh)" }
+                handler.post { tvOutput.text = "ESP dimulai ($sw x $sh), menunggu frame..." }
             } catch (e: Throwable) {
                 handler.post { tvOutput.text = "ESP start failed: ${e.message}" }
             }

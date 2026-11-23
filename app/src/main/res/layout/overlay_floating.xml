@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content">
 
-    <!-- Bubble mode -->
     <LinearLayout
         android:id="@+id/bubbleView"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
         android:background="@drawable/bg_bubble"
         android:gravity="center"
         android:orientation="vertical"
@@ -16,20 +16,19 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="C++"
+            android:text="A"
             android:textColor="@color/accent"
-            android:textSize="14sp"
+            android:textSize="18sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Panel mode -->
     <LinearLayout
         android:id="@+id/panelView"
-        android:layout_width="320dp"
+        android:layout_width="300dp"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_panel"
         android:orientation="vertical"
-        android:padding="12dp"
+        android:padding="10dp"
         android:visibility="gone">
 
         <LinearLayout
@@ -40,39 +39,62 @@
             android:orientation="horizontal"
             android:paddingBottom="8dp">
 
-            <TextView
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Native Overlay"
-                android:textColor="@color/text_primary"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Arkana Overlay"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="external root menu"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="10sp" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/btnMinimize"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_button"
                 android:gravity="center"
-                android:text="_"
+                android:text="-"
                 android:textColor="@color/text_primary"
-                android:textSize="18sp" />
+                android:textSize="16sp" />
 
             <TextView
                 android:id="@+id/btnClose"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_button"
                 android:gravity="center"
                 android:text="X"
                 android:textColor="@color/accent_red"
-                android:textSize="16sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#334CAF50" />
+
         <ScrollView
             android:layout_width="match_parent"
-            android:layout_height="360dp"
-            android:fillViewport="true">
+            android:layout_height="320dp"
+            android:layout_marginTop="8dp"
+            android:fillViewport="true"
+            android:scrollbars="none">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -83,187 +105,209 @@
                     android:id="@+id/swTelemetry"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Live C++ Telemetry"
-                    android:textColor="@color/text_primary" />
+                    android:text="Live Telemetry"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp" />
 
                 <TextView
                     android:id="@+id/tvTelemetry"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/bg_input"
                     android:fontFamily="monospace"
+                    android:padding="8dp"
                     android:text="Telemetry off"
                     android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
+                    android:textSize="11sp" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Root Actions"
+                    android:layout_marginTop="10dp"
+                    android:text="ROOT"
                     android:textColor="@color/accent"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <Button
                     android:id="@+id/btnSelinux"
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
+                    android:layout_height="38dp"
+                    android:layout_marginTop="4dp"
                     android:background="@drawable/bg_button"
-            app:backgroundTint="@null"
-                    android:text="Cek SELinux (getenforce)"
+                    android:text="Cek SELinux"
                     android:textAllCaps="false"
                     android:textColor="@color/text_primary"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    app:backgroundTint="@null" />
 
                 <Button
                     android:id="@+id/btnDropCache"
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
+                    android:layout_height="38dp"
+                    android:layout_marginTop="4dp"
                     android:background="@drawable/bg_button"
-            app:backgroundTint="@null"
                     android:text="Drop RAM Cache"
                     android:textAllCaps="false"
                     android:textColor="@color/text_primary"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    app:backgroundTint="@null" />
 
                 <EditText
                     android:id="@+id/etCommand"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:background="@drawable/bg_input"
-                    android:hint="Run Root Cmd"
-                    android:padding="10dp"
+                    android:hint="Root command"
+                    android:padding="8dp"
                     android:singleLine="true"
                     android:textColor="@color/text_primary"
                     android:textColorHint="@color/text_secondary"
-                    android:textSize="13sp" />
+                    android:textSize="12sp" />
 
                 <Button
                     android:id="@+id/btnRunCmd"
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
+                    android:layout_height="38dp"
+                    android:layout_marginTop="4dp"
                     android:background="@drawable/bg_button"
-            app:backgroundTint="@null"
-                    android:text="Run Root Cmd"
+                    android:text="Run Command"
                     android:textAllCaps="false"
                     android:textColor="@color/text_primary"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    app:backgroundTint="@null" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="FF Aimlock (ptrace)"
+                    android:layout_marginTop="10dp"
+                    android:text="AIMLOCK (ptrace)"
                     android:textColor="@color/accent"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <Button
                     android:id="@+id/btnInstallAimlock"
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
+                    android:layout_height="38dp"
+                    android:layout_marginTop="4dp"
                     android:background="@drawable/bg_button"
-            app:backgroundTint="@null"
-                    android:text="Install/Update Aimlock Scripts"
+                    android:text="Install / Update Scripts"
                     android:textAllCaps="false"
                     android:textColor="@color/text_primary"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    app:backgroundTint="@null" />
 
-                <Button
-                    android:id="@+id/btnStartAimlock"
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_button"
-            app:backgroundTint="@null"
-                    android:text="Start Aimlock (root)"
-                    android:textAllCaps="false"
-                    android:textColor="@color/text_primary"
-                    android:textSize="12sp" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal">
 
-                <Button
-                    android:id="@+id/btnStopAimlock"
-                    android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_button"
-            app:backgroundTint="@null"
-                    android:text="Stop Aimlock"
-                    android:textAllCaps="false"
-                    android:textColor="@color/text_primary"
-                    android:textSize="12sp" />
+                    <Button
+                        android:id="@+id/btnStartAimlock"
+                        android:layout_width="0dp"
+                        android:layout_height="38dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button"
+                        android:text="Start"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary"
+                        android:textSize="12sp"
+                        app:backgroundTint="@null" />
+
+                    <Button
+                        android:id="@+id/btnStopAimlock"
+                        android:layout_width="0dp"
+                        android:layout_height="38dp"
+                        android:layout_marginStart="6dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button"
+                        android:text="Stop"
+                        android:textAllCaps="false"
+                        android:textColor="@color/accent_red"
+                        android:textSize="12sp"
+                        app:backgroundTint="@null" />
+                </LinearLayout>
 
                 <Button
                     android:id="@+id/btnToggleHitbox"
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
+                    android:layout_height="38dp"
+                    android:layout_marginTop="4dp"
                     android:background="@drawable/bg_button"
-            app:backgroundTint="@null"
                     android:text="Toggle Hitbox Expand"
                     android:textAllCaps="false"
                     android:textColor="@color/text_primary"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    app:backgroundTint="@null" />
 
                 <Button
                     android:id="@+id/btnToggleNoRecoil"
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
+                    android:layout_height="38dp"
+                    android:layout_marginTop="4dp"
                     android:background="@drawable/bg_button"
-            app:backgroundTint="@null"
                     android:text="Toggle No Recoil"
                     android:textAllCaps="false"
                     android:textColor="@color/text_primary"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    app:backgroundTint="@null" />
 
                 <Button
                     android:id="@+id/btnToggleSniperOnly"
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
+                    android:layout_height="38dp"
+                    android:layout_marginTop="4dp"
                     android:background="@drawable/bg_button"
-            app:backgroundTint="@null"
                     android:text="Toggle Sniper Only"
                     android:textAllCaps="false"
                     android:textColor="@color/text_primary"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    app:backgroundTint="@null" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="ESP Line (C++)"
+                    android:layout_marginTop="10dp"
+                    android:text="ESP LINE (external)"
                     android:textColor="@color/accent"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
-                <Button
-                    android:id="@+id/btnStartEsp"
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_button"
-            app:backgroundTint="@null"
-                    android:text="Start ESP Line"
-                    android:textAllCaps="false"
-                    android:textColor="@color/text_primary"
-                    android:textSize="12sp" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal">
 
-                <Button
-                    android:id="@+id/btnStopEsp"
-                    android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_button"
-            app:backgroundTint="@null"
-                    android:text="Stop ESP Line"
-                    android:textAllCaps="false"
-                    android:textColor="@color/text_primary"
-                    android:textSize="12sp" />
+                    <Button
+                        android:id="@+id/btnStartEsp"
+                        android:layout_width="0dp"
+                        android:layout_height="38dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button"
+                        android:text="Start ESP"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_primary"
+                        android:textSize="12sp"
+                        app:backgroundTint="@null" />
+
+                    <Button
+                        android:id="@+id/btnStopEsp"
+                        android:layout_width="0dp"
+                        android:layout_height="38dp"
+                        android:layout_marginStart="6dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_button"
+                        android:text="Stop ESP"
+                        android:textAllCaps="false"
+                        android:textColor="@color/accent_red"
+                        android:textSize="12sp"
+                        app:backgroundTint="@null" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/tvOutput"
@@ -272,11 +316,12 @@
                     android:layout_marginTop="10dp"
                     android:background="@drawable/bg_input"
                     android:fontFamily="monospace"
-                    android:minHeight="80dp"
-                    android:padding="10dp"
-                    android:text="Output..."
+                    android:minHeight="64dp"
+                    android:padding="8dp"
+                    android:text="Ready."
                     android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
+                    android:textIsSelectable="true"
+                    android:textSize="11sp" />
 
             </LinearLayout>
         </ScrollView>

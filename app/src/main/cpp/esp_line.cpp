@@ -87,7 +87,7 @@ static int find_pid(const std::string& name) {
         int pid = atoi(e->d_name);
         char cp[64]; snprintf(cp,sizeof(cp),"/proc/%d/cmdline",pid);
         std::ifstream in(cp, std::ios::binary); std::string cmd; std::getline(in,cmd,'\0');
-        if(cmd.find(name)!=std::string::npos){ found=pid; break; }
+        if(cmd == name || cmd.rfind(name + ":", 0) == 0){ found=pid; break; }
     }
     closedir(d); return found;
 }
@@ -307,6 +307,7 @@ struct Config {
     bool esp_enabled=true, esp_teammate_skip=true;
     float fovDeg=75.0f;
     int screenW=720, screenH=1600;
+    std::string process = "com.dts.freefireth";
 };
 
 static Config load_config(const std::string& path) {
@@ -330,6 +331,10 @@ static Config load_config(const std::string& path) {
     c.fovDeg = json_get_float(j, "esp_fov", 75.0f);
     c.screenW = (int)json_get_float(j, "screen_w", 720);
     c.screenH = (int)json_get_float(j, "screen_h", 1600);
+    {
+        auto pos = j.find("\"process\"");
+        if(pos!=std::string::npos){ pos=j.find(':',pos); if(pos!=std::string::npos){ pos=j.find('\"',pos); if(pos!=std::string::npos){ auto end=j.find('\"',pos+1); if(end!=std::string::npos) c.process=j.substr(pos+1,end-pos-1); } } }
+    }
     return c;
 }
 
@@ -427,7 +432,7 @@ int main(int argc, char** argv) {
     fprintf(stderr, "[esp] cfg=%s screen=%dx%d\n", cfgPath.c_str(), cfg.screenW, cfg.screenH);
 
     int pid = -1;
-    for(int i=0;i<50 && pid<0;i++) { pid = find_pid("com.dts.freefire"); if(pid<0){ std::this_thread::sleep_for(std::chrono::milliseconds(500)); } }
+    for(int i=0;i<50 && pid<0;i++) { pid = find_pid(cfg.process); if(pid<0){ std::this_thread::sleep_for(std::chrono::milliseconds(500)); } }
     if(pid < 0) { fprintf(stderr, "[esp] game not found\n"); return 1; }
     fprintf(stderr, "[esp] pid=%d\n", pid);
 
@@ -438,7 +443,7 @@ int main(int argc, char** argv) {
     int frameCount = 0;
     while(true) {
         std::vector<std::pair<std::pair<float,float>,std::pair<float,float>>> lines;
-        int np = find_pid("com.dts.freefire");
+        int np = find_pid(cfg.process);
         if(np < 0) { emit_frame(cfg.screenW,cfg.screenH,lines); std::this_thread::sleep_for(std::chrono::milliseconds(1000)); continue; }
         if(np != pid) { pid=np; base=elf_load_bias(pid,"libil2cpp.so",cfg.r_curLocal?cfg.r_curLocal:0x71BD10C); fprintf(stderr,"[esp] pid=%d base=%llx\n",pid,(unsigned long long)base); }
         if(!base) { emit_frame(cfg.screenW,cfg.screenH,lines); std::this_thread::sleep_for(std::chrono::milliseconds(1000)); continue; }
