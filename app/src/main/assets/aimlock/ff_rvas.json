@@ -9,6 +9,7 @@
     "GameFacade.CurrentMatch": "0x71BCD10",
     "GameFacade.CurrentLocalTeamIndex": "0x71BED90",
     "GameFacade.IsLocalTeammate": "0x71BD8EC",
+    "Player.get_IsDead": "0x716C210",
     "Player.GetRuntimeMainCameraTransform": "0x6F26C3C",
     "Player.get_HeadBoneTransform": "0x6F2F4B8",
     "Player.GetHeadTF": "0x6FAE37C",

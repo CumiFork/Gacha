@@ -301,7 +301,7 @@ static float json_get_float(const std::string& j, const std::string& key, float 
 }
 
 struct Config {
-    u64 r_curLocal=0, r_curMatch=0, r_isTeammate=0, r_getHeadTF=0, r_getPos=0;
+    u64 r_curLocal=0, r_curMatch=0, r_isTeammate=0, r_isDead=0, r_getHeadTF=0, r_getPos=0;
     u64 r_mainCam=0, r_camPos=0, r_camRot=0;
     u64 f_matchPlayers=0x158, f_matchPlayersAlt=0x160;
     bool esp_enabled=true, esp_teammate_skip=true;
@@ -316,6 +316,8 @@ static Config load_config(const std::string& path) {
     json_get_u64(j, "GameFacade.CurrentLocalPlayer", c.r_curLocal);
     json_get_u64(j, "GameFacade.CurrentMatch", c.r_curMatch);
     json_get_u64(j, "GameFacade.IsLocalTeammate", c.r_isTeammate);
+    json_get_u64(j, "Player.get_IsDead", c.r_isDead);
+    if(c.r_isDead==0) json_get_u64(j, "Player.IsDead", c.r_isDead);
     json_get_u64(j, "Player.GetHeadTF", c.r_getHeadTF);
     if(c.r_getHeadTF==0) json_get_u64(j, "Player.get_HeadBoneTransform", c.r_getHeadTF);
     json_get_u64(j, "Transform.get_position", c.r_getPos);
@@ -466,6 +468,12 @@ int main(int argc, char** argv) {
                         PtRegs tr{}; FpRegs tf{};
                         if(rc.call(cfg.r_isTeammate, {p}, 0, false, tr, tf)) {
                             if(((u32)tr.regs[0]) != 0) continue;
+                        }
+                    }
+                    if(cfg.r_isDead) {
+                        PtRegs dr{}; FpRegs df{};
+                        if(rc.call(cfg.r_isDead, {p}, 0, true, dr, df)) {
+                            if(((u32)dr.regs[0]) != 0) continue;
                         }
                     }
                     u64 headTf = cfg.r_getHeadTF ? rc.call_ptr(cfg.r_getHeadTF, p, true) : 0;
